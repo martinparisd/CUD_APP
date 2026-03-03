@@ -21,7 +21,7 @@ interface GeneratePDFParams {
 
 interface PDFResult {
   success: boolean;
-  pdfBlob?: Blob;
+  pdfBytes?: Uint8Array;
   pdfBase64?: string;
   error?: string;
 }
@@ -77,9 +77,8 @@ export async function generatePDFViaEdgeFunction(
       binary += String.fromCharCode(bytes[i]);
     }
     const base64 = btoa(binary);
-    const blob = new Blob([bytes], { type: 'application/pdf' });
 
-    return { success: true, pdfBlob: blob, pdfBase64: base64 };
+    return { success: true, pdfBytes: bytes, pdfBase64: base64 };
   } catch (err) {
     return {
       success: false,
@@ -95,12 +94,13 @@ export async function downloadPDFFromEdgeFunction(
   try {
     const result = await generatePDFViaEdgeFunction(params);
 
-    if (!result.success || !result.pdfBlob) {
+    if (!result.success || !result.pdfBytes) {
       return { success: false, error: result.error || 'No se pudo generar el PDF' };
     }
 
     if (Platform.OS === 'web') {
-      const url = URL.createObjectURL(result.pdfBlob);
+      const blob = new Blob([result.pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${fileName}.pdf`;
@@ -111,13 +111,11 @@ export async function downloadPDFFromEdgeFunction(
       return { success: true };
     }
 
-    const FileSystem = await import('expo-file-system/next');
+    const FileSystem = await import('expo-file-system');
     const Sharing = await import('expo-sharing');
 
     const file = new FileSystem.File(FileSystem.Paths.document, `${fileName}.pdf`);
-    const arrayBuffer = await result.pdfBlob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    file.write(bytes);
+    file.write(result.pdfBytes);
 
     const canShare = await Sharing.isAvailableAsync();
     if (canShare) {
