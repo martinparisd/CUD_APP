@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { generateFormPDF, saveHTMLToStorage, downloadAndSharePDF, savePDFToStorage, downloadAndShareJsPDF, getPDFAsBase64 } from '@/services/pdfGenerationService';
 import { sendEnvelopeForForm, getEnvelopeForRecord, EnvelopeStatus } from '@/services/docusignService';
 import { supabase } from '@/lib/supabase';
-import { FileDown, Send, CheckCircle } from 'lucide-react-native';
+import { FileDown, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
   const { id, afiliadoId, formDisplayName, formRouteName } = useLocalSearchParams();
