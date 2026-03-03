@@ -394,7 +394,7 @@ export const anexoConformidadConfig: FormConfig = {
       fields: [
         {
           name: 'firma',
-          type: 'signature',
+          type: 'text',
           label: 'Firma',
           required: false,
         },
@@ -412,7 +412,7 @@ export const anexoConformidadConfig: FormConfig = {
         },
         {
           name: 'firmante_firma',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Firmante',
           required: false,
         },
@@ -501,13 +501,13 @@ export const formularioFIMConfig: FormConfig = {
         },
         {
           name: 'firma_terapeuta',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Terapeuta',
           required: false,
         },
         {
           name: 'firma_profesional',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Profesional',
           required: false,
         },
@@ -570,7 +570,7 @@ export const informeTratamientoConfig: FormConfig = {
       fields: [
         {
           name: 'firma_profesional',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Profesional',
           required: false,
         },
@@ -665,7 +665,7 @@ export const planTratamientoConfig: FormConfig = {
       fields: [
         {
           name: 'firma_profesional',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Profesional',
           required: false,
         },
@@ -815,7 +815,7 @@ export const presupuestoPrestacionesConfig: FormConfig = {
       fields: [
         {
           name: 'firma_profesional',
-          type: 'signature',
+          type: 'text',
           label: 'Firma del Profesional',
           required: false,
         },
@@ -1054,7 +1054,7 @@ export const fichaPrestadorConfig: FormConfig = {
       fields: [
         {
           name: 'firma_sello',
-          type: 'signature',
+          type: 'text',
           label: 'Firma y Sello',
           required: false,
         },
