@@ -483,6 +483,7 @@ export default function AfiliadoDetail() {
         saving={saving}
         recordId={recordId && typeof recordId === 'string' && recordId !== 'new' ? recordId : undefined}
         tableName={formConfig?.tableName || ''}
+        tenantId={selectedTenantId}
       />
     </View>
   );

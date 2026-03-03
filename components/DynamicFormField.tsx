@@ -17,6 +17,7 @@ interface DynamicFormFieldProps {
   onChange: (name: string, value: any) => void;
   error?: string;
   editable?: boolean;
+  tenantId?: string;
 }
 
 export default function DynamicFormField({
@@ -25,6 +26,7 @@ export default function DynamicFormField({
   onChange,
   error,
   editable = true,
+  tenantId,
 }: DynamicFormFieldProps) {
   if (field.hidden) return null;
 
@@ -139,9 +141,12 @@ export default function DynamicFormField({
           onChange={handleChange}
           itemTemplate={field.itemTemplate || {}}
           itemLabels={field.itemLabels || {}}
+          itemTypes={field.itemTypes}
+          itemSelectOptions={field.itemSelectOptions}
           required={field.required}
           error={error}
           editable={editable}
+          tenantId={tenantId}
         />
       );
 

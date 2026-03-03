@@ -30,6 +30,8 @@ export interface FormFieldConfig {
   decimal?: boolean;
   itemTemplate?: Record<string, any>;
   itemLabels?: Record<string, string>;
+  itemTypes?: Record<string, FieldType>;
+  itemSelectOptions?: Record<string, string>;
 }
 
 export interface FormSection {

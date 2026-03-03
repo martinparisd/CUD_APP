@@ -134,3 +134,28 @@ export async function fetchAfiliadoDetails(
     return null;
   }
 }
+
+export async function fetchPrestadores(tenantId: string | null): Promise<Array<{ label: string; value: string }>> {
+  try {
+    if (!tenantId) return [];
+
+    const { data, error } = await supabase
+      .from('prestadores')
+      .select('id, nombre_razon_social')
+      .eq('tenant_id', tenantId)
+      .order('nombre_razon_social', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching prestadores:', error);
+      return [];
+    }
+
+    return (data || []).map((prestador) => ({
+      label: prestador.nombre_razon_social,
+      value: prestador.id,
+    }));
+  } catch (error) {
+    console.error('Error in fetchPrestadores:', error);
+    return [];
+  }
+}

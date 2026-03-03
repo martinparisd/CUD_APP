@@ -22,6 +22,7 @@ interface DynamicFormProps {
   editable?: boolean;
   recordId?: string;
   tableName: string;
+  tenantId?: string;
 }
 
 export default function DynamicForm({
@@ -36,6 +37,7 @@ export default function DynamicForm({
   editable = true,
   recordId,
   tableName,
+  tenantId,
 }: DynamicFormProps) {
   const attachmentFieldName = tableName === 'evaluaciones_interdisciplinarias' ? 'archivo_pdf' : 'archivo_adjunto';
   if (loading) {
@@ -66,6 +68,7 @@ export default function DynamicForm({
                   onChange={onChange}
                   error={errors[field.name]}
                   editable={editable}
+                  tenantId={tenantId}
                 />
               ))}
             </View>
