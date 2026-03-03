@@ -295,15 +295,15 @@ export default function AfiliadoDetail() {
       if (pdfResult.success) {
         const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}`;
 
-        if (pdfResult.pdfDoc) {
-          await downloadAndShareJsPDF(pdfResult.pdfDoc, fileName);
-        } else if (pdfResult.htmlContent) {
+        if (pdfResult.htmlContent) {
           await downloadAndSharePDF(pdfResult.htmlContent, fileName);
+        } else if (pdfResult.pdfDoc) {
+          await downloadAndShareJsPDF(pdfResult.pdfDoc, fileName);
         } else {
           Alert.alert('Error', 'No se pudo generar el PDF');
         }
       } else {
-        Alert.alert('Error', 'No se pudo generar el PDF');
+        Alert.alert('Error', pdfResult.error || 'No se pudo generar el PDF');
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
