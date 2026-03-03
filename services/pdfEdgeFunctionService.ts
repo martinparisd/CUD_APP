@@ -3,14 +3,14 @@ import { Platform, Alert } from 'react-native';
 
 const TABLE_TO_FORM_TYPE: Record<string, string> = {
   formularios_fim: 'fim',
-  evaluaciones_interdisciplinarias: 'evaluacion_interdisciplinaria',
-  anexo_iii_conformidad: 'anexo_conformidad',
+  evaluaciones_interdisciplinarias: 'evaluacion',
+  anexo_iii_conformidad: 'anexo_iii',
   pedidos_medicos: 'pedido_medico',
-  resumenes_historia_clinica: 'resumen_historia_clinica',
-  informes_tratamiento: 're158_informe',
-  formularios_plan_tratamiento: 're159_plan_tratamiento',
-  presupuestos_prestaciones: 're160_presupuesto',
-  fichas_prestador: 're161_ficha_prestador',
+  resumenes_historia_clinica: 'resumen_hc',
+  informes_tratamiento: 'informe_tratamiento',
+  formularios_plan_tratamiento: 'plan_tratamiento',
+  presupuestos_prestaciones: 'presupuesto',
+  fichas_prestador: 'ficha_prestador',
 };
 
 interface GeneratePDFParams {
@@ -35,42 +35,51 @@ export async function generatePDFViaEdgeFunction(
       return { success: false, error: `No form type mapping for table: ${params.tableName}` };
     }
 
-    const { data, error } = await supabase.functions.invoke('generate-formulario-pdf', {
-      body: {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { success: false, error: 'No active session' };
+    }
+
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const url = `${supabaseUrl}/functions/v1/generate-formulario-pdf`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey!,
+      },
+      body: JSON.stringify({
         record_id: params.recordId,
         form_type: formType,
         tenant_id: params.tenantId,
-      },
+      }),
     });
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    if (data instanceof Blob) {
-      const arrayBuffer = await data.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMsg = `Error ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMsg = errorJson.error || errorMsg;
+      } catch {
+        errorMsg = errorText || errorMsg;
       }
-      const base64 = btoa(binary);
-
-      return { success: true, pdfBlob: data, pdfBase64: base64 };
+      return { success: false, error: errorMsg };
     }
 
-    if (data?.pdf_base64) {
-      const binaryString = atob(data.pdf_base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-
-      return { success: true, pdfBlob: blob, pdfBase64: data.pdf_base64 };
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
+    const base64 = btoa(binary);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
 
-    return { success: false, error: 'Unexpected response format from edge function' };
+    return { success: true, pdfBlob: blob, pdfBase64: base64 };
   } catch (err) {
     return {
       success: false,
