@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { Platform } from 'react-native';
 
 export interface DocuSignSigner {
   name: string;
@@ -27,6 +28,7 @@ export interface EnvelopeStatus {
   status: string;
   sent_at: string;
   completed_at?: string;
+  file_name: string;
 }
 
 export interface DownloadSignedResult {
@@ -77,12 +79,17 @@ export async function sendEnvelopeForForm(params: SendEnvelopeParams): Promise<S
     const result = await response.json();
 
     if (result.envelopeId) {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
       await saveEnvelopeRecord({
         envelopeId: result.envelopeId,
         status: result.status || 'sent',
         sourceTable: params.sourceTable,
         sourceRecordId: params.sourceRecordId,
         tenantId: params.tenantId,
+        fileName: params.fileName,
+        emailSubject: params.emailSubject,
+        signers: params.signers,
+        sentBy: currentSession?.user?.id || '',
       });
     }
 
@@ -146,12 +153,64 @@ export async function downloadSignedPDF(envelopeId: string): Promise<DownloadSig
   }
 }
 
+export async function downloadSignedPDFToDevice(
+  pdfBase64: string,
+  fileName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const binaryString = atob(pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    if (Platform.OS === 'web') {
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return { success: true };
+    }
+
+    const FileSystem = await import('expo-file-system');
+    const Sharing = await import('expo-sharing');
+
+    const safeName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+    const file = new FileSystem.File(FileSystem.Paths.document, safeName);
+    file.write(bytes);
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Documento Firmado',
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error al descargar PDF firmado',
+    };
+  }
+}
+
 async function saveEnvelopeRecord(params: {
   envelopeId: string;
   status: string;
   sourceTable: string;
   sourceRecordId: string;
   tenantId: string;
+  fileName: string;
+  emailSubject: string;
+  signers: DocuSignSigner[];
+  sentBy: string;
 }) {
   await supabase.from('docusign_envelopes').upsert(
     {
@@ -160,6 +219,10 @@ async function saveEnvelopeRecord(params: {
       source_table: params.sourceTable,
       source_record_id: params.sourceRecordId,
       tenant_id: params.tenantId,
+      file_name: params.fileName,
+      email_subject: params.emailSubject,
+      signers: params.signers,
+      sent_by: params.sentBy,
       sent_at: new Date().toISOString(),
     },
     { onConflict: 'envelope_id' }
@@ -173,7 +236,7 @@ export async function getEnvelopeForRecord(
   try {
     const { data, error } = await supabase
       .from('docusign_envelopes')
-      .select('envelope_id, status, sent_at, completed_at')
+      .select('envelope_id, status, sent_at, completed_at, file_name')
       .eq('source_table', sourceTable)
       .eq('source_record_id', sourceRecordId)
       .order('created_at', { ascending: false })

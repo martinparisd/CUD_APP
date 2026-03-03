@@ -11,8 +11,8 @@ import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
-import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, EnvelopeStatus } from '@/services/docusignService';
-import { Share2, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, downloadSignedPDFToDevice, EnvelopeStatus } from '@/services/docusignService';
+import { Share2, Send, CircleCheck as CheckCircle, Download } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
   const { id, afiliadoId, formDisplayName, formRouteName } = useLocalSearchParams();
@@ -24,6 +24,7 @@ export default function AfiliadoDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [envelopeStatus, setEnvelopeStatus] = useState<EnvelopeStatus | null>(null);
 
   const selectedTenant = tenants.find(t => t.id === selectedTenantId);
@@ -263,6 +264,41 @@ export default function AfiliadoDetail() {
     );
   }, [formConfig, afiliadoDetails, selectedTenantId, user, recordId]);
 
+  const handleCheckSignedDocument = useCallback(async () => {
+    if (!envelopeStatus) return;
+
+    setDownloading(true);
+    try {
+      const result = await downloadSignedPDF(envelopeStatus.envelope_id);
+
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'No se pudo verificar el documento');
+        return;
+      }
+
+      if (result.status === 'completed' && result.pdfBase64) {
+        const fileName = envelopeStatus.file_name
+          ? `firmado_${envelopeStatus.file_name}`
+          : `documento_firmado_${Date.now()}.pdf`;
+
+        const downloadResult = await downloadSignedPDFToDevice(result.pdfBase64, fileName);
+
+        if (!downloadResult.success) {
+          Alert.alert('Error', downloadResult.error || 'No se pudo descargar el documento firmado');
+          return;
+        }
+
+        setEnvelopeStatus(prev => prev ? { ...prev, status: 'completed' } : prev);
+      } else {
+        Alert.alert('Pendiente', 'El documento aun no fue firmado.');
+      }
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Error al verificar documento firmado');
+    } finally {
+      setDownloading(false);
+    }
+  }, [envelopeStatus]);
+
   useEffect(() => {
     if (afiliadoDetails) {
       navigation.setOptions({
@@ -276,14 +312,16 @@ export default function AfiliadoDetail() {
               <Share2 size={24} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={handleSend}
-              style={[styles.headerIconButton, sending && styles.headerIconDisabled]}
-              disabled={sending}
+              onPress={envelopeStatus ? handleCheckSignedDocument : handleSend}
+              style={[styles.headerIconButton, (sending || downloading) && styles.headerIconDisabled]}
+              disabled={sending || downloading}
             >
-              {sending ? (
+              {sending || downloading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : envelopeStatus?.status === 'completed' ? (
+                <Download size={24} color="#34D399" />
               ) : envelopeStatus ? (
-                <CheckCircle size={24} color="#4ADE80" />
+                <CheckCircle size={24} color="#FBBF24" />
               ) : (
                 <Send size={24} color="#FFFFFF" />
               )}
@@ -292,7 +330,7 @@ export default function AfiliadoDetail() {
         ),
       });
     }
-  }, [afiliadoDetails, navigation, sending, envelopeStatus, handleSend, handleDownloadPDF]);
+  }, [afiliadoDetails, navigation, sending, downloading, envelopeStatus, handleSend, handleCheckSignedDocument, handleDownloadPDF]);
 
   if (loading) {
     return (
