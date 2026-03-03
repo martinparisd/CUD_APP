@@ -55,9 +55,25 @@ export default function AfiliadoDetail() {
     if (afiliadoDetails) {
       navigation.setOptions({
         title: `${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
+        headerRight: () => (
+          <View style={styles.headerIcons}>
+            <TouchableOpacity
+              onPress={handleDownloadPDF}
+              style={styles.headerIconButton}
+            >
+              <FileDown size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSend}
+              style={styles.headerIconButton}
+            >
+              <Send size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ),
       });
     }
-  }, [afiliadoDetails, navigation]);
+  }, [afiliadoDetails, navigation, data]);
 
   const loadAfiliadoDetails = async () => {
     if (!afiliadoId || typeof afiliadoId !== 'string') {
@@ -235,6 +251,70 @@ export default function AfiliadoDetail() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!formConfig || !afiliadoDetails || !selectedTenantId) {
+      Alert.alert('Error', 'Faltan datos necesarios para generar el PDF');
+      return;
+    }
+
+    if (formConfig.tableName !== 'formularios_fim') {
+      Alert.alert('Información', 'La generación de PDF solo está disponible para formularios FIM');
+      return;
+    }
+
+    try {
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('id', selectedTenantId)
+        .single();
+
+      if (tenantError || !tenantData) {
+        throw new Error('No se pudo obtener información del tenant');
+      }
+
+      const pdfResult = await generateFormPDF(formConfig.tableName, {
+        formType: formConfig.tableName,
+        formData: data,
+        afiliadoData: {
+          nombre: afiliadoDetails.nombre,
+          apellido: afiliadoDetails.apellido,
+          dni: afiliadoDetails.dni,
+          obra_social: afiliadoDetails.obra_social || undefined,
+        },
+        tenantData: {
+          nombre: tenantData.nombre || '',
+          cuit: tenantData.cuit || '',
+          direccion: tenantData.direccion || '',
+          telefono: tenantData.telefono || '',
+          email: tenantData.email || '',
+          logo_url: tenantData.logo_url || null,
+        },
+      });
+
+      if (pdfResult.success) {
+        const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}`;
+
+        if (pdfResult.pdfDoc) {
+          await downloadAndShareJsPDF(pdfResult.pdfDoc, fileName);
+        } else if (pdfResult.htmlContent) {
+          await downloadAndSharePDF(pdfResult.htmlContent, fileName);
+        } else {
+          Alert.alert('Error', 'No se pudo generar el PDF');
+        }
+      } else {
+        Alert.alert('Error', 'No se pudo generar el PDF');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'Ocurrió un error al generar el PDF');
+    }
+  };
+
+  const handleSend = () => {
+    Alert.alert('Información', 'Función de envío próximamente disponible');
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -334,5 +414,14 @@ const styles = StyleSheet.create({
   contentText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerIconButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 });
