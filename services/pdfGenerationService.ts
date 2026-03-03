@@ -78,7 +78,8 @@ export async function generateFormPDF(
   mode?: PDFRenderMode
 ): Promise<{ success: boolean; htmlContent?: string; pdfDoc?: jsPDF; error?: string }> {
   try {
-    const useJsPDF = mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType];
+    const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+    const useJsPDF = !isNative && (mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType]);
 
     if (useJsPDF) {
       return await generateFormPDFWithJsPDF(formType, templateData);
@@ -265,6 +266,7 @@ export async function downloadAndSharePDF(htmlContent: string, fileName: string)
           mimeType: 'text/html',
           dialogTitle: 'Compartir Formulario',
         });
+        Alert.alert('Formulario guardado', 'El formulario fue guardado y está listo para compartir.');
       }
 
       return { success: true };
