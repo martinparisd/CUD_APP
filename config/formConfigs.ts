@@ -338,8 +338,9 @@ export const anexoConformidadConfig: FormConfig = {
           required: false,
           options: [
             { label: 'DNI', value: 'DNI' },
-            { label: 'CI', value: 'CI' },
             { label: 'Pasaporte', value: 'Pasaporte' },
+            { label: 'LE', value: 'LE' },
+            { label: 'LC', value: 'LC' },
           ],
         },
         {
