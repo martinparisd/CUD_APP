@@ -295,10 +295,10 @@ export default function AfiliadoDetail() {
       if (pdfResult.success) {
         const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}`;
 
-        if (pdfResult.htmlContent) {
-          await downloadAndSharePDF(pdfResult.htmlContent, fileName);
-        } else if (pdfResult.pdfDoc) {
+        if (pdfResult.pdfDoc) {
           await downloadAndShareJsPDF(pdfResult.pdfDoc, fileName);
+        } else if (pdfResult.htmlContent) {
+          await downloadAndSharePDF(pdfResult.htmlContent, fileName);
         } else {
           Alert.alert('Error', 'No se pudo generar el PDF');
         }

@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { PDFTemplateData } from '@/types/pdfTemplates';
 import { generateFIMPDF } from './pdfTemplates/fimTemplate';
 import { TenantInfo, PacienteBasic } from './pdfTemplates/utils/pdfTypes';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 
 type jsPDF = any;
 
@@ -78,8 +78,7 @@ export async function generateFormPDF(
   mode?: PDFRenderMode
 ): Promise<{ success: boolean; htmlContent?: string; pdfDoc?: jsPDF; error?: string }> {
   try {
-    const isNativeMobile = Platform.OS === 'ios' || Platform.OS === 'android';
-    const useJsPDF = !isNativeMobile && (mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType]);
+    const useJsPDF = mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType];
 
     if (useJsPDF) {
       return await generateFormPDFWithJsPDF(formType, templateData);
@@ -214,6 +213,7 @@ export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
           mimeType: 'application/pdf',
           dialogTitle: 'Compartir Formulario',
         });
+        Alert.alert('PDF descargado', 'El formulario FIM fue guardado correctamente.');
       }
 
       return { success: true };
