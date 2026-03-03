@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { PDFTemplateData } from '@/types/pdfTemplates';
 import { generateFIMPDF } from './pdfTemplates/fimTemplate';
-import { generateFimPDFWithJsPDF, FimFormData } from './pdfTemplates/fimTemplatejsPDF';
 import { TenantInfo, PacienteBasic } from './pdfTemplates/utils/pdfTypes';
 import { Platform } from 'react-native';
-import jsPDF from 'jspdf';
+
+type jsPDF = any;
 
 const PDF_TEMPLATES: Record<string, (data: PDFTemplateData) => string> = {
   formularios_fim: generateFIMPDF,
@@ -24,6 +24,9 @@ async function generateFormPDFWithJsPDF(
   templateData: PDFTemplateData
 ): Promise<{ success: boolean; pdfDoc?: jsPDF; error?: string }> {
   try {
+    // Dynamic import to avoid loading jsPDF on mobile platforms
+    const { generateFimPDFWithJsPDF } = await import('./pdfTemplates/fimTemplatejsPDF');
+
     if (formType === 'formularios_fim') {
       const tenant: TenantInfo = {
         name: templateData.tenantData.nombre || '',
@@ -46,7 +49,7 @@ async function generateFormPDFWithJsPDF(
         obra_social: templateData.afiliadoData.obra_social || null,
       };
 
-      const formData: FimFormData = templateData.formData as FimFormData;
+      const formData: any = templateData.formData;
 
       const pdfDoc = await generateFimPDFWithJsPDF(tenant, paciente, formData);
 
@@ -75,7 +78,8 @@ export async function generateFormPDF(
   mode?: PDFRenderMode
 ): Promise<{ success: boolean; htmlContent?: string; pdfDoc?: jsPDF; error?: string }> {
   try {
-    const useJsPDF = mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType];
+    const isNativeMobile = Platform.OS === 'ios' || Platform.OS === 'android';
+    const useJsPDF = !isNativeMobile && (mode === 'jspdf' || USE_JSPDF_FOR_FORMS[formType]);
 
     if (useJsPDF) {
       return await generateFormPDFWithJsPDF(formType, templateData);
