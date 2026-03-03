@@ -175,6 +175,28 @@ export async function saveHTMLToStorage(
   }
 }
 
+export async function getPDFAsBase64(
+  formType: string,
+  templateData: PDFTemplateData
+): Promise<{ success: boolean; base64?: string; error?: string }> {
+  try {
+    const result = await generateFormPDFWithJsPDF(formType, templateData);
+
+    if (!result.success || !result.pdfDoc) {
+      return { success: false, error: result.error || 'No se pudo generar el PDF' };
+    }
+
+    const base64 = result.pdfDoc.output('datauristring').split(',')[1];
+
+    return { success: true, base64 };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al generar PDF base64',
+    };
+  }
+}
+
 export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
   try {
     console.log('[downloadAndShareJsPDF] Starting, Platform:', Platform.OS);
