@@ -1,15 +1,22 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FileText, ChevronRight } from 'lucide-react-native';
+import { FileText, ChevronRight, FolderOpen } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface FormItem {
   id: string;
   title: string;
   route: string;
+  icon?: 'folder' | 'file';
 }
 
 const formItems: FormItem[] = [
+  {
+    id: '0',
+    title: 'Mis documentos',
+    route: '/formularios/historial',
+    icon: 'folder',
+  },
   {
     id: '1',
     title: 'Evaluación Interdisciplinaria',
@@ -84,8 +91,15 @@ export default function FormulariosIndex() {
               ]}
               onPress={() => router.push(item.route as any)}
               activeOpacity={0.7}>
-              <View style={styles.iconContainer}>
-                <FileText size={24} color="#6366F1" strokeWidth={2} />
+              <View style={[
+                styles.iconContainer,
+                item.icon === 'folder' && styles.folderIconContainer,
+              ]}>
+                {item.icon === 'folder' ? (
+                  <FolderOpen size={24} color="#10B981" strokeWidth={2} />
+                ) : (
+                  <FileText size={24} color="#6366F1" strokeWidth={2} />
+                )}
               </View>
               <Text style={styles.formTitle}>{item.title}</Text>
               <ChevronRight size={20} color="#D1D5DB" strokeWidth={2} />
@@ -158,6 +172,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+  },
+  folderIconContainer: {
+    backgroundColor: '#D1FAE5',
   },
   formTitle: {
     flex: 1,
