@@ -48,7 +48,7 @@ export default function Historial() {
       }
     } else {
       navigation.setOptions({
-        title: 'Historial',
+        title: 'Mis documentos',
       });
     }
   }, [formRouteName, navigation]);
