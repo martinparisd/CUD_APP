@@ -102,6 +102,7 @@ export default function DynamicFormField({
       );
 
     case 'boolean':
+      console.log('DynamicFormField boolean case:', { fieldName: field.name, value, editable });
       return (
         <FormCheckbox
           label={field.label}

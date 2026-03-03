@@ -16,11 +16,18 @@ export default function FormCheckbox({
   error,
   editable = true,
 }: FormCheckboxProps) {
+  console.log('FormCheckbox render:', { label, value, editable });
+
+  const handlePress = (checked: boolean) => {
+    console.log('FormCheckbox pressed:', { label, newValue: checked });
+    onChange(checked);
+  };
+
   return (
     <View style={styles.container}>
       <BouncyCheckbox
         isChecked={value}
-        onPress={onChange}
+        onPress={handlePress}
         text={label}
         fillColor="#5B4CDB"
         unFillColor="#FFFFFF"

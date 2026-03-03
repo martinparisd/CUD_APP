@@ -244,13 +244,13 @@ export const pedidoMedicoConfig: FormConfig = {
         },
         {
           name: 'periodo_desde_institucion',
-          type: 'text',
+          type: 'date',
           label: 'Período Desde',
           required: false,
         },
         {
           name: 'periodo_hasta_institucion',
-          type: 'text',
+          type: 'date',
           label: 'Período Hasta',
           required: false,
         },
@@ -297,13 +297,13 @@ export const pedidoMedicoConfig: FormConfig = {
         },
         {
           name: 'periodo_desde_maestro',
-          type: 'text',
+          type: 'date',
           label: 'Período Desde',
           required: false,
         },
         {
           name: 'periodo_hasta_maestro',
-          type: 'text',
+          type: 'date',
           label: 'Período Hasta',
           required: false,
         },
