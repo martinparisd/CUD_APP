@@ -11,7 +11,7 @@ import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
-import { sendEnvelopeForForm, getEnvelopeForRecord, EnvelopeStatus } from '@/services/docusignService';
+import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, EnvelopeStatus } from '@/services/docusignService';
 import { Share2, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
@@ -235,8 +235,8 @@ export default function AfiliadoDetail() {
               const result = await sendEnvelopeForForm({
                 pdfBase64: pdfResult.pdfBase64,
                 fileName,
-                emailSubject: `${formConfig.displayName} - ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
-                signer: { name: signerName, email: signerEmail },
+                emailSubject: `Firmar: ${formConfig.displayName} - ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
+                signers: [{ name: signerName, email: signerEmail }],
                 tenantId: selectedTenantId,
                 sourceTable: formConfig.tableName,
                 sourceRecordId: recordId,
