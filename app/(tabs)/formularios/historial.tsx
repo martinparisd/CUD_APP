@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { FileText, ChevronRight, Plus } from 'lucide-react-native';
+import { FileText, ChevronRight, Plus, FileCheck } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { AfiliadoDetails, fetchAfiliadoDetails } from '@/services/formRecordsService';
+import { fetchUserSignedDocuments, SignedDocument, downloadSignedDocumentFromStorage } from '@/services/signedDocumentsService';
+import { downloadSignedPDFToDevice } from '@/services/docusignService';
 
 interface HistorialRecord {
   id: string;
@@ -20,7 +22,9 @@ export default function Historial() {
   const navigation = useNavigation();
   const [afiliadoDetails, setAfiliadoDetails] = useState<AfiliadoDetails | null>(null);
   const [records, setRecords] = useState<HistorialRecord[]>([]);
+  const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -54,12 +58,19 @@ export default function Historial() {
   }, [formRouteName, navigation]);
 
   const loadData = async () => {
-    if (!afiliadoId || typeof afiliadoId !== 'string') {
+    setLoading(true);
+
+    if (!afiliadoId && !formRouteName) {
+      const signedDocs = await fetchUserSignedDocuments();
+      setSignedDocuments(signedDocs);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!afiliadoId || typeof afiliadoId !== 'string') {
+      setLoading(false);
+      return;
+    }
 
     const details = await fetchAfiliadoDetails(afiliadoId);
     setAfiliadoDetails(details);
@@ -138,6 +149,20 @@ export default function Historial() {
     });
   };
 
+  const handleSignedDocumentPress = async (doc: SignedDocument) => {
+    setDownloadingDoc(doc.id);
+    try {
+      const result = await downloadSignedDocumentFromStorage(doc.signed_pdf_path);
+      if (result.success && result.pdfBase64) {
+        await downloadSignedPDFToDevice(result.pdfBase64, doc.file_name);
+      }
+    } catch (err) {
+      console.error('Error downloading signed document:', err);
+    } finally {
+      setDownloadingDoc(null);
+    }
+  };
+
   const handleCreateNew = () => {
     if (!formRouteName || typeof formRouteName !== 'string' || !afiliadoId) return;
 
@@ -185,6 +210,28 @@ export default function Historial() {
     </TouchableOpacity>
   );
 
+  const renderSignedDocument = ({ item }: { item: SignedDocument }) => (
+    <TouchableOpacity
+      style={styles.recordCard}
+      onPress={() => handleSignedDocumentPress(item)}
+      activeOpacity={0.7}
+      disabled={downloadingDoc === item.id}>
+      <View style={[styles.recordIcon, styles.signedIcon]}>
+        {downloadingDoc === item.id ? (
+          <ActivityIndicator size="small" color="#10B981" />
+        ) : (
+          <FileCheck size={24} color="#10B981" strokeWidth={2} />
+        )}
+      </View>
+      <View style={styles.recordContent}>
+        <Text style={styles.recordTitle}>{item.email_subject || item.file_name}</Text>
+        <Text style={styles.recordDate}>Firmado: {formatDate(item.completed_at)}</Text>
+        <Text style={styles.signedBadge}>Documento firmado</Text>
+      </View>
+      <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
+    </TouchableOpacity>
+  );
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -220,7 +267,25 @@ export default function Historial() {
         </View>
       )}
 
-      {records.length === 0 ? (
+      {!afiliadoId && !formRouteName ? (
+        signedDocuments.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <FileCheck size={48} color="#D1D5DB" strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>No hay documentos firmados</Text>
+            <Text style={styles.emptySubtitle}>
+              Los documentos que firmes aparecerán aquí
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={signedDocuments}
+            renderItem={renderSignedDocument}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      ) : records.length === 0 ? (
         <View style={styles.centerContainer}>
           <FileText size={48} color="#D1D5DB" strokeWidth={1.5} />
           <Text style={styles.emptyTitle}>No hay formularios</Text>
@@ -317,6 +382,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  signedIcon: {
+    backgroundColor: '#D1FAE5',
+  },
   recordContent: {
     flex: 1,
   },
@@ -334,6 +402,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 2,
+  },
+  signedBadge: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '600',
+    marginTop: 4,
+    textTransform: 'uppercase',
   },
   emptyTitle: {
     fontSize: 18,
