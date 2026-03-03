@@ -11,7 +11,7 @@ import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
-import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, downloadSignedPDFToDevice, EnvelopeStatus } from '@/services/docusignService';
+import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, downloadSignedPDFToDevice, saveSignedPDFToStorage, downloadSignedPDFFromStorage, EnvelopeStatus } from '@/services/docusignService';
 import { Share2, Send, CircleCheck as CheckCircle, Download } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
@@ -269,6 +269,18 @@ export default function AfiliadoDetail() {
 
     setDownloading(true);
     try {
+      const fileName = envelopeStatus.file_name
+        ? `firmado_${envelopeStatus.file_name}`
+        : `documento_firmado_${Date.now()}.pdf`;
+
+      if (envelopeStatus.signed_pdf_path) {
+        const storageResult = await downloadSignedPDFFromStorage(envelopeStatus.signed_pdf_path);
+        if (storageResult.success && storageResult.pdfBase64) {
+          await downloadSignedPDFToDevice(storageResult.pdfBase64, fileName);
+          return;
+        }
+      }
+
       const result = await downloadSignedPDF(envelopeStatus.envelope_id);
 
       if (!result.success) {
@@ -277,9 +289,11 @@ export default function AfiliadoDetail() {
       }
 
       if (result.status === 'completed' && result.pdfBase64) {
-        const fileName = envelopeStatus.file_name
-          ? `firmado_${envelopeStatus.file_name}`
-          : `documento_firmado_${Date.now()}.pdf`;
+        const saveResult = await saveSignedPDFToStorage(
+          result.pdfBase64,
+          envelopeStatus.envelope_id,
+          fileName
+        );
 
         const downloadResult = await downloadSignedPDFToDevice(result.pdfBase64, fileName);
 
@@ -288,7 +302,11 @@ export default function AfiliadoDetail() {
           return;
         }
 
-        setEnvelopeStatus(prev => prev ? { ...prev, status: 'completed' } : prev);
+        setEnvelopeStatus(prev => prev ? {
+          ...prev,
+          status: 'completed',
+          signed_pdf_path: saveResult.path || prev.signed_pdf_path,
+        } : prev);
       } else {
         Alert.alert('Pendiente', 'El documento aun no fue firmado.');
       }

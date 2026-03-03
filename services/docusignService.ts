@@ -29,6 +29,7 @@ export interface EnvelopeStatus {
   sent_at: string;
   completed_at?: string;
   file_name: string;
+  signed_pdf_path?: string;
 }
 
 export interface DownloadSignedResult {
@@ -236,7 +237,7 @@ export async function getEnvelopeForRecord(
   try {
     const { data, error } = await supabase
       .from('docusign_envelopes')
-      .select('envelope_id, status, sent_at, completed_at, file_name')
+      .select('envelope_id, status, sent_at, completed_at, file_name, signed_pdf_path')
       .eq('source_table', sourceTable)
       .eq('source_record_id', sourceRecordId)
       .order('created_at', { ascending: false })
@@ -248,5 +249,78 @@ export async function getEnvelopeForRecord(
     return data as EnvelopeStatus;
   } catch {
     return null;
+  }
+}
+
+export async function saveSignedPDFToStorage(
+  pdfBase64: string,
+  envelopeId: string,
+  fileName: string
+): Promise<{ success: boolean; path?: string; error?: string }> {
+  try {
+    const binaryString = atob(pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const safeName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+    const storagePath = `${envelopeId}/${safeName}`;
+
+    const { data, error } = await supabase.storage
+      .from('signed-documents')
+      .upload(storagePath, bytes, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    await supabase
+      .from('docusign_envelopes')
+      .update({
+        signed_pdf_path: data.path,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('envelope_id', envelopeId);
+
+    return { success: true, path: data.path };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error al guardar PDF firmado',
+    };
+  }
+}
+
+export async function downloadSignedPDFFromStorage(
+  storagePath: string
+): Promise<{ success: boolean; pdfBase64?: string; error?: string }> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('signed-documents')
+      .download(storagePath);
+
+    if (error || !data) {
+      return { success: false, error: error?.message || 'No se encontró el archivo' };
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+
+    return { success: true, pdfBase64: base64 };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error al descargar PDF firmado',
+    };
   }
 }
