@@ -5,6 +5,7 @@ import {
   FormDatePicker,
   FormNumberInput,
   FormCheckbox,
+  FormToggle,
   FormSelect,
   FormJsonArrayInput,
   FormSignatureInput,
@@ -104,7 +105,7 @@ export default function DynamicFormField({
     case 'boolean':
       console.log('DynamicFormField boolean case:', { fieldName: field.name, value, editable });
       return (
-        <FormCheckbox
+        <FormToggle
           label={field.label}
           value={value || false}
           onChange={handleChange}

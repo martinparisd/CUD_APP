@@ -3,6 +3,7 @@ export { default as FormTextArea } from './FormTextArea';
 export { default as FormDatePicker } from './FormDatePicker';
 export { default as FormNumberInput } from './FormNumberInput';
 export { default as FormCheckbox } from './FormCheckbox';
+export { default as FormToggle } from './FormToggle';
 export { default as FormSelect } from './FormSelect';
 export { default as FormJsonArrayInput } from './FormJsonArrayInput';
 export { default as FormSignatureInput } from './FormSignatureInput';
