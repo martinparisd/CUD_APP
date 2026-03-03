@@ -1,0 +1,128 @@
+import { supabase } from '@/lib/supabase';
+import { Platform, Alert } from 'react-native';
+
+const TABLE_TO_FORM_TYPE: Record<string, string> = {
+  formularios_fim: 'fim',
+  evaluaciones_interdisciplinarias: 'evaluacion_interdisciplinaria',
+  anexo_iii_conformidad: 'anexo_conformidad',
+  pedidos_medicos: 'pedido_medico',
+  resumenes_historia_clinica: 'resumen_historia_clinica',
+  informes_tratamiento: 're158_informe',
+  formularios_plan_tratamiento: 're159_plan_tratamiento',
+  presupuestos_prestaciones: 're160_presupuesto',
+  fichas_prestador: 're161_ficha_prestador',
+};
+
+interface GeneratePDFParams {
+  recordId: string;
+  tableName: string;
+  tenantId: string;
+}
+
+interface PDFResult {
+  success: boolean;
+  pdfBlob?: Blob;
+  pdfBase64?: string;
+  error?: string;
+}
+
+export async function generatePDFViaEdgeFunction(
+  params: GeneratePDFParams
+): Promise<PDFResult> {
+  try {
+    const formType = TABLE_TO_FORM_TYPE[params.tableName];
+    if (!formType) {
+      return { success: false, error: `No form type mapping for table: ${params.tableName}` };
+    }
+
+    const { data, error } = await supabase.functions.invoke('generate-formulario-pdf', {
+      body: {
+        record_id: params.recordId,
+        form_type: formType,
+        tenant_id: params.tenantId,
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data instanceof Blob) {
+      const arrayBuffer = await data.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      return { success: true, pdfBlob: data, pdfBase64: base64 };
+    }
+
+    if (data?.pdf_base64) {
+      const binaryString = atob(data.pdf_base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+
+      return { success: true, pdfBlob: blob, pdfBase64: data.pdf_base64 };
+    }
+
+    return { success: false, error: 'Unexpected response format from edge function' };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error generating PDF via edge function',
+    };
+  }
+}
+
+export async function downloadPDFFromEdgeFunction(
+  params: GeneratePDFParams,
+  fileName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await generatePDFViaEdgeFunction(params);
+
+    if (!result.success || !result.pdfBlob) {
+      return { success: false, error: result.error || 'No se pudo generar el PDF' };
+    }
+
+    if (Platform.OS === 'web') {
+      const url = URL.createObjectURL(result.pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return { success: true };
+    }
+
+    const FileSystem = await import('expo-file-system/next');
+    const Sharing = await import('expo-sharing');
+
+    const file = new FileSystem.File(FileSystem.Paths.document, `${fileName}.pdf`);
+    const arrayBuffer = await result.pdfBlob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    file.write(bytes);
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Compartir Formulario',
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Error al descargar PDF',
+    };
+  }
+}

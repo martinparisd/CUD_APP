@@ -10,9 +10,8 @@ import DynamicForm from '@/components/DynamicForm';
 import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { generateFormPDF, saveHTMLToStorage, downloadAndSharePDF, savePDFToStorage, downloadAndShareJsPDF, getPDFAsBase64 } from '@/services/pdfGenerationService';
+import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
 import { sendEnvelopeForForm, getEnvelopeForRecord, EnvelopeStatus } from '@/services/docusignService';
-import { supabase } from '@/lib/supabase';
 import { FileDown, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
@@ -106,115 +105,42 @@ export default function AfiliadoDetail() {
       result = await createFormRecord(formConfig.tableName as FormType, formData);
     }
 
-    // Generate PDF for FIM forms
-    if (result.success && formConfig.tableName === 'formularios_fim' && afiliadoDetails && selectedTenantId) {
-      try {
-        // Fetch full tenant details
-        const { data: tenantData, error: tenantError } = await supabase
-          .from('tenants')
-          .select('*')
-          .eq('id', selectedTenantId)
-          .single();
-
-        if (tenantError || !tenantData) {
-          throw new Error('No se pudo obtener información del tenant');
-        }
-
-        const pdfResult = await generateFormPDF(formConfig.tableName, {
-          formType: formConfig.tableName,
-          formData: formData,
-          afiliadoData: {
-            nombre: afiliadoDetails.nombre,
-            apellido: afiliadoDetails.apellido,
-            dni: afiliadoDetails.dni,
-            obra_social: afiliadoDetails.obra_social || undefined,
-          },
-          tenantData: {
-            nombre: tenantData.nombre || '',
-            cuit: tenantData.cuit || '',
-            direccion: tenantData.direccion || '',
-            telefono: tenantData.telefono || '',
-            email: tenantData.email || '',
-            logo_url: tenantData.logo_url || null,
-          },
-        });
-
-        if (pdfResult.success) {
-          const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}`;
-
-          if (pdfResult.pdfDoc) {
-            await savePDFToStorage(pdfResult.pdfDoc, fileName);
-
-            Alert.alert(
-              'Formulario guardado',
-              '¿Desea descargar el PDF del formulario?',
-              [
-                {
-                  text: 'Más tarde',
-                  onPress: () => router.back(),
-                  style: 'cancel',
-                },
-                {
-                  text: 'Descargar',
-                  onPress: async () => {
-                    await downloadAndShareJsPDF(pdfResult.pdfDoc!, fileName);
-                    router.back();
-                  },
-                },
-              ]
-            );
-          } else if (pdfResult.htmlContent) {
-            await saveHTMLToStorage(pdfResult.htmlContent, fileName);
-
-            Alert.alert(
-              'Formulario guardado',
-              '¿Desea descargar el PDF del formulario?',
-              [
-                {
-                  text: 'Más tarde',
-                  onPress: () => router.back(),
-                  style: 'cancel',
-                },
-                {
-                  text: 'Descargar',
-                  onPress: async () => {
-                    await downloadAndSharePDF(pdfResult.htmlContent!, fileName);
-                    router.back();
-                  },
-                },
-              ]
-            );
-          } else {
-            Alert.alert('Éxito', 'Formulario guardado correctamente', [
-              {
-                text: 'OK',
-                onPress: () => router.back(),
-              },
-            ]);
-          }
-        } else {
-          Alert.alert('Éxito', 'Formulario guardado correctamente', [
+    if (result.success && afiliadoDetails && selectedTenantId) {
+      const savedRecordId = result.data?.id || recordId;
+      if (savedRecordId && typeof savedRecordId === 'string' && savedRecordId !== 'new') {
+        const fileName = `${formConfig.displayName}_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${Date.now()}`;
+        Alert.alert(
+          'Formulario guardado',
+          '¿Desea descargar el PDF del formulario?',
+          [
             {
-              text: 'OK',
+              text: 'Más tarde',
               onPress: () => router.back(),
+              style: 'cancel',
             },
-          ]);
-        }
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        Alert.alert('Éxito', 'Formulario guardado correctamente (PDF no disponible)', [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
+            {
+              text: 'Descargar',
+              onPress: async () => {
+                const pdfResult = await downloadPDFFromEdgeFunction(
+                  { recordId: savedRecordId, tableName: formConfig.tableName, tenantId: selectedTenantId },
+                  fileName
+                );
+                if (!pdfResult.success) {
+                  Alert.alert('Error', pdfResult.error || 'No se pudo descargar el PDF');
+                }
+                router.back();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Éxito', 'Formulario guardado correctamente', [
+          { text: 'OK', onPress: () => router.back() },
         ]);
       }
     } else if (result.success) {
       Alert.alert('Éxito', 'Formulario guardado correctamente', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
+        { text: 'OK', onPress: () => router.back() },
       ]);
     } else {
       Alert.alert('Error', result.error || 'No se pudo guardar el formulario');
@@ -244,68 +170,29 @@ export default function AfiliadoDetail() {
       return;
     }
 
-    if (formConfig.tableName !== 'formularios_fim') {
-      Alert.alert('Información', 'La generación de PDF solo está disponible para formularios FIM');
+    if (!recordId || typeof recordId !== 'string' || recordId === 'new') {
+      Alert.alert('Error', 'Debe guardar el formulario antes de descargar el PDF');
       return;
     }
 
     try {
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', selectedTenantId)
-        .single();
+      const fileName = `${formConfig.displayName}_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${Date.now()}`;
+      const result = await downloadPDFFromEdgeFunction(
+        { recordId, tableName: formConfig.tableName, tenantId: selectedTenantId },
+        fileName
+      );
 
-      if (tenantError || !tenantData) {
-        throw new Error('No se pudo obtener información del tenant');
-      }
-
-      const pdfResult = await generateFormPDF(formConfig.tableName, {
-        formType: formConfig.tableName,
-        formData: data,
-        afiliadoData: {
-          nombre: afiliadoDetails.nombre,
-          apellido: afiliadoDetails.apellido,
-          dni: afiliadoDetails.dni,
-          obra_social: afiliadoDetails.obra_social || undefined,
-        },
-        tenantData: {
-          nombre: tenantData.nombre || '',
-          cuit: tenantData.cuit || '',
-          direccion: tenantData.direccion || '',
-          telefono: tenantData.telefono || '',
-          email: tenantData.email || '',
-          logo_url: tenantData.logo_url || null,
-        },
-      });
-
-      if (pdfResult.success) {
-        const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}`;
-
-        if (pdfResult.pdfDoc) {
-          await downloadAndShareJsPDF(pdfResult.pdfDoc, fileName);
-        } else if (pdfResult.htmlContent) {
-          await downloadAndSharePDF(pdfResult.htmlContent, fileName);
-        } else {
-          Alert.alert('Error', 'No se pudo generar el PDF');
-        }
-      } else {
-        Alert.alert('Error', pdfResult.error || 'No se pudo generar el PDF');
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'No se pudo generar el PDF');
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
       Alert.alert('Error', 'Ocurrió un error al generar el PDF');
     }
-  }, [formConfig, afiliadoDetails, selectedTenantId, data]);
+  }, [formConfig, afiliadoDetails, selectedTenantId, recordId]);
 
   const handleSend = useCallback(async () => {
     if (!formConfig || !afiliadoDetails || !selectedTenantId) {
       Alert.alert('Error', 'Faltan datos necesarios para enviar a DocuSign');
-      return;
-    }
-
-    if (formConfig.tableName !== 'formularios_fim') {
-      Alert.alert('Información', 'El envío a DocuSign solo está disponible para formularios FIM');
       return;
     }
 
@@ -324,7 +211,7 @@ export default function AfiliadoDetail() {
 
     Alert.alert(
       'Enviar a DocuSign',
-      `Se enviará el formulario FIM de ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre} para firma a:\n\n${signerName}\n${signerEmail}`,
+      `Se enviará el formulario de ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre} para firma a:\n\n${signerName}\n${signerEmail}`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -333,47 +220,22 @@ export default function AfiliadoDetail() {
             setSending(true);
 
             try {
-              const { data: tenantData, error: tenantError } = await supabase
-                .from('tenants')
-                .select('*')
-                .eq('id', selectedTenantId)
-                .single();
+              const pdfResult = await generatePDFViaEdgeFunction({
+                recordId,
+                tableName: formConfig.tableName,
+                tenantId: selectedTenantId,
+              });
 
-              if (tenantError || !tenantData) {
-                throw new Error('No se pudo obtener información del tenant');
-              }
-
-              const templateData = {
-                formType: formConfig.tableName,
-                formData: data,
-                afiliadoData: {
-                  nombre: afiliadoDetails.nombre,
-                  apellido: afiliadoDetails.apellido,
-                  dni: afiliadoDetails.dni,
-                  obra_social: afiliadoDetails.obra_social || undefined,
-                },
-                tenantData: {
-                  nombre: tenantData.nombre || '',
-                  cuit: tenantData.cuit || '',
-                  direccion: tenantData.direccion || '',
-                  telefono: tenantData.telefono || '',
-                  email: tenantData.email || '',
-                  logo_url: tenantData.logo_url || null,
-                },
-              };
-
-              const pdfResult = await getPDFAsBase64(formConfig.tableName, templateData);
-
-              if (!pdfResult.success || !pdfResult.base64) {
+              if (!pdfResult.success || !pdfResult.pdfBase64) {
                 throw new Error(pdfResult.error || 'No se pudo generar el PDF');
               }
 
-              const fileName = `FIM_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${new Date().getTime()}.pdf`;
+              const fileName = `${formConfig.displayName}_${afiliadoDetails.apellido}_${afiliadoDetails.nombre}_${Date.now()}.pdf`;
 
               const result = await sendEnvelopeForForm({
-                pdfBase64: pdfResult.base64,
+                pdfBase64: pdfResult.pdfBase64,
                 fileName,
-                emailSubject: `Formulario FIM - ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
+                emailSubject: `${formConfig.displayName} - ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
                 signer: { name: signerName, email: signerEmail },
                 tenantId: selectedTenantId,
                 sourceTable: formConfig.tableName,
@@ -398,7 +260,7 @@ export default function AfiliadoDetail() {
         },
       ]
     );
-  }, [formConfig, afiliadoDetails, selectedTenantId, user, data, recordId, sending, envelopeStatus]);
+  }, [formConfig, afiliadoDetails, selectedTenantId, user, recordId]);
 
   useEffect(() => {
     if (afiliadoDetails) {
