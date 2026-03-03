@@ -185,9 +185,9 @@ export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
       const Sharing = await import('expo-sharing');
 
       const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
-      const fileUri = `${FileSystem.documentDirectory}${fileName}.pdf`;
-      await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
-        encoding: FileSystem.EncodingType.Base64,
+      const fileUri = `${FileSystem.Paths.document}/${fileName}.pdf`;
+      await FileSystem.File.create(fileUri, pdfBase64, {
+        encoding: 'base64',
       });
 
       const canShare = await Sharing.isAvailableAsync();
@@ -227,8 +227,8 @@ export async function downloadAndSharePDF(htmlContent: string, fileName: string)
       const FileSystem = await import('expo-file-system');
       const Sharing = await import('expo-sharing');
 
-      const fileUri = `${FileSystem.documentDirectory}${fileName}.html`;
-      await FileSystem.writeAsStringAsync(fileUri, htmlContent);
+      const fileUri = `${FileSystem.Paths.document}/${fileName}.html`;
+      await FileSystem.File.create(fileUri, htmlContent);
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
