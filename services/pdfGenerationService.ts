@@ -177,22 +177,40 @@ export async function saveHTMLToStorage(
 
 export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
   try {
+    console.log('[downloadAndShareJsPDF] Starting, Platform:', Platform.OS);
+
     if (Platform.OS === 'web') {
       pdfDoc.save(`${fileName}.pdf`);
       return { success: true };
     } else {
-      const FileSystem = await import('expo-file-system');
+      console.log('[downloadAndShareJsPDF] Importing FileSystem modules');
+      const FileSystem = await import('expo-file-system/next');
       const Sharing = await import('expo-sharing');
 
+      console.log('[downloadAndShareJsPDF] Generating PDF base64');
       const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
-      const fileUri = `${FileSystem.Paths.document}/${fileName}.pdf`;
-      await FileSystem.File.create(fileUri, pdfBase64, {
-        encoding: 'base64',
-      });
+
+      console.log('[downloadAndShareJsPDF] Creating file object');
+      const file = new FileSystem.File(FileSystem.Paths.document, `${fileName}.pdf`);
+
+      console.log('[downloadAndShareJsPDF] File URI:', file.uri);
+      console.log('[downloadAndShareJsPDF] Writing file');
+
+      // Convert base64 to Uint8Array
+      const binaryString = atob(pdfBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      file.write(bytes);
+      console.log('[downloadAndShareJsPDF] File written successfully');
 
       const canShare = await Sharing.isAvailableAsync();
+      console.log('[downloadAndShareJsPDF] Can share:', canShare);
+
       if (canShare) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(file.uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Compartir Formulario',
         });
@@ -201,7 +219,7 @@ export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
       return { success: true };
     }
   } catch (error) {
-    console.error('Error downloading/sharing PDF:', error);
+    console.error('[downloadAndShareJsPDF] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to download/share',
@@ -211,6 +229,8 @@ export async function downloadAndShareJsPDF(pdfDoc: jsPDF, fileName: string) {
 
 export async function downloadAndSharePDF(htmlContent: string, fileName: string) {
   try {
+    console.log('[downloadAndSharePDF] Starting, Platform:', Platform.OS);
+
     if (Platform.OS === 'web') {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
@@ -224,15 +244,24 @@ export async function downloadAndSharePDF(htmlContent: string, fileName: string)
       }
       return { success: true };
     } else {
-      const FileSystem = await import('expo-file-system');
+      console.log('[downloadAndSharePDF] Importing FileSystem modules');
+      const FileSystem = await import('expo-file-system/next');
       const Sharing = await import('expo-sharing');
 
-      const fileUri = `${FileSystem.Paths.document}/${fileName}.html`;
-      await FileSystem.File.create(fileUri, htmlContent);
+      console.log('[downloadAndSharePDF] Creating file object');
+      const file = new FileSystem.File(FileSystem.Paths.document, `${fileName}.html`);
+
+      console.log('[downloadAndSharePDF] File URI:', file.uri);
+      console.log('[downloadAndSharePDF] Writing file');
+
+      file.write(htmlContent);
+      console.log('[downloadAndSharePDF] File written successfully');
 
       const canShare = await Sharing.isAvailableAsync();
+      console.log('[downloadAndSharePDF] Can share:', canShare);
+
       if (canShare) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(file.uri, {
           mimeType: 'text/html',
           dialogTitle: 'Compartir Formulario',
         });
@@ -241,7 +270,7 @@ export async function downloadAndSharePDF(htmlContent: string, fileName: string)
       return { success: true };
     }
   } catch (error) {
-    console.error('Error downloading/sharing PDF:', error);
+    console.error('[downloadAndSharePDF] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to download/share',
