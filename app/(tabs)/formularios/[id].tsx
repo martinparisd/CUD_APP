@@ -11,6 +11,7 @@ import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { generateFormPDF, saveHTMLToStorage, downloadAndSharePDF, savePDFToStorage, downloadAndShareJsPDF } from '@/services/pdfGenerationService';
 import { supabase } from '@/lib/supabase';
+import { FileDown, Send } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
   const { id, afiliadoId, formDisplayName, formRouteName } = useLocalSearchParams();
