@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { fetchAfiliadoDetails, AfiliadoDetails } from '@/services/formRecordsService';
 import { getFormTableConfig } from '@/config/formTables';
 import { formConfigs } from '@/config/formConfigs';
@@ -56,37 +56,6 @@ export default function AfiliadoDetail() {
       setLoading(false);
     }
   }, [afiliadoId, recordId]);
-
-  useEffect(() => {
-    if (afiliadoDetails) {
-      navigation.setOptions({
-        title: `${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
-        headerRight: () => (
-          <View style={styles.headerIcons}>
-            <TouchableOpacity
-              onPress={handleDownloadPDF}
-              style={styles.headerIconButton}
-            >
-              <FileDown size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSend}
-              style={[styles.headerIconButton, sending && styles.headerIconDisabled]}
-              disabled={sending}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : envelopeStatus ? (
-                <CheckCircle size={24} color="#4ADE80" />
-              ) : (
-                <Send size={24} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-          </View>
-        ),
-      });
-    }
-  }, [afiliadoDetails, navigation, data, sending, envelopeStatus]);
 
   const loadEnvelopeStatus = async (sourceTable: string, sourceRecordId: string) => {
     const status = await getEnvelopeForRecord(sourceTable, sourceRecordId);
@@ -269,7 +238,7 @@ export default function AfiliadoDetail() {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = useCallback(async () => {
     if (!formConfig || !afiliadoDetails || !selectedTenantId) {
       Alert.alert('Error', 'Faltan datos necesarios para generar el PDF');
       return;
@@ -327,9 +296,9 @@ export default function AfiliadoDetail() {
       console.error('Error generating PDF:', error);
       Alert.alert('Error', 'Ocurrió un error al generar el PDF');
     }
-  };
+  }, [formConfig, afiliadoDetails, selectedTenantId, data]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!formConfig || !afiliadoDetails || !selectedTenantId) {
       Alert.alert('Error', 'Faltan datos necesarios para enviar a DocuSign');
       return;
@@ -429,7 +398,38 @@ export default function AfiliadoDetail() {
         },
       ]
     );
-  };
+  }, [formConfig, afiliadoDetails, selectedTenantId, user, data, recordId, sending, envelopeStatus]);
+
+  useEffect(() => {
+    if (afiliadoDetails) {
+      navigation.setOptions({
+        title: `${afiliadoDetails.apellido}, ${afiliadoDetails.nombre}`,
+        headerRight: () => (
+          <View style={styles.headerIcons}>
+            <TouchableOpacity
+              onPress={handleDownloadPDF}
+              style={styles.headerIconButton}
+            >
+              <FileDown size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSend}
+              style={[styles.headerIconButton, sending && styles.headerIconDisabled]}
+              disabled={sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : envelopeStatus ? (
+                <CheckCircle size={24} color="#4ADE80" />
+              ) : (
+                <Send size={24} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        ),
+      });
+    }
+  }, [afiliadoDetails, navigation, sending, envelopeStatus, handleSend, handleDownloadPDF]);
 
   if (loading) {
     return (
