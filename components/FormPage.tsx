@@ -1,7 +1,7 @@
 import { View, StyleSheet, TextInput } from 'react-native';
 import { Search } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
-import { useRouter, useSegments } from 'expo-router';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSegments, useFocusEffect } from 'expo-router';
 import FormRecordList from './FormRecordList';
 import { fetchFormRecords, FormRecord } from '@/services/formRecordsService';
 import { getFormTableConfig } from '@/config/formTables';
@@ -18,15 +18,12 @@ export default function FormPage({ title }: FormPageProps) {
   const router = useRouter();
   const segments = useSegments();
   const { selectedTenantId } = useTenant();
+  const lastTenantRef = useRef<string | null>(null);
 
   const routeName = segments[segments.length - 1] as string;
   const tableConfig = getFormTableConfig(routeName);
 
-  useEffect(() => {
-    loadRecords();
-  }, [selectedTenantId]);
-
-  const loadRecords = async () => {
+  const loadRecords = useCallback(async () => {
     if (!tableConfig) {
       setLoading(false);
       return;
@@ -36,7 +33,20 @@ export default function FormPage({ title }: FormPageProps) {
     const data = await fetchFormRecords(tableConfig.tableName, '', selectedTenantId);
     setRecords(data);
     setLoading(false);
-  };
+  }, [selectedTenantId, tableConfig?.tableName]);
+
+  useEffect(() => {
+    loadRecords();
+  }, [loadRecords]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (lastTenantRef.current !== null && lastTenantRef.current !== selectedTenantId) {
+        loadRecords();
+      }
+      lastTenantRef.current = selectedTenantId;
+    }, [selectedTenantId, loadRecords])
+  );
 
   const handleRecordPress = (record: FormRecord) => {
     console.log('Opening record:', record.id);
