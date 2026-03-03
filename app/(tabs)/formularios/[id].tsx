@@ -12,7 +12,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
 import { sendEnvelopeForForm, getEnvelopeForRecord, EnvelopeStatus } from '@/services/docusignService';
-import { FileDown, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { Share2, Send, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
   const { id, afiliadoId, formDisplayName, formRouteName } = useLocalSearchParams();
@@ -272,7 +272,7 @@ export default function AfiliadoDetail() {
               onPress={handleDownloadPDF}
               style={styles.headerIconButton}
             >
-              <FileDown size={24} color="#FFFFFF" />
+              <Share2 size={24} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSend}
