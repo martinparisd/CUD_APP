@@ -208,10 +208,11 @@ export default function AfiliadoDetail() {
 
     const signerName = user.user_metadata?.full_name || user.email;
     const signerEmail = user.email;
+    const signerDisplay = signerName !== signerEmail ? `${signerName} (${signerEmail})` : signerEmail;
 
     Alert.alert(
       'Enviar a DocuSign',
-      `Se enviará el formulario de ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre} para firma a:\n\n${signerName}\n${signerEmail}`,
+      `Se enviará el formulario de ${afiliadoDetails.apellido}, ${afiliadoDetails.nombre} para firma a:\n\n${signerDisplay}`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
