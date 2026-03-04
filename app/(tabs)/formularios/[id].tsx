@@ -11,7 +11,7 @@ import { useFormState } from '@/hooks/useFormState';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { generatePDFViaEdgeFunction, downloadPDFFromEdgeFunction } from '@/services/pdfEdgeFunctionService';
-import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, downloadSignedPDFToDevice, saveSignedPDFToStorage, downloadSignedPDFFromStorage, EnvelopeStatus } from '@/services/docusignService';
+import { sendEnvelopeForForm, getEnvelopeForRecord, downloadSignedPDF, downloadSignedPDFToDevice, downloadSignedPDFFromStorage, EnvelopeStatus } from '@/services/docusignService';
 import { Share2, Send, CircleCheck as CheckCircle, Download } from 'lucide-react-native';
 
 export default function AfiliadoDetail() {
@@ -60,6 +60,13 @@ export default function AfiliadoDetail() {
   const loadEnvelopeStatus = async (sourceTable: string, sourceRecordId: string) => {
     const status = await getEnvelopeForRecord(sourceTable, sourceRecordId);
     setEnvelopeStatus(status);
+
+    if (status && status.status === 'completed' && !status.signed_pdf_path) {
+      const result = await downloadSignedPDF(status.envelope_id);
+      if (result.success && result.signedPdfPath) {
+        setEnvelopeStatus(prev => prev ? { ...prev, signed_pdf_path: result.signedPdfPath } : prev);
+      }
+    }
   };
 
   const loadAfiliadoDetails = async () => {
@@ -289,12 +296,6 @@ export default function AfiliadoDetail() {
       }
 
       if (result.status === 'completed' && result.pdfBase64) {
-        const saveResult = await saveSignedPDFToStorage(
-          result.pdfBase64,
-          envelopeStatus.envelope_id,
-          fileName
-        );
-
         const downloadResult = await downloadSignedPDFToDevice(result.pdfBase64, fileName);
 
         if (!downloadResult.success) {
@@ -305,7 +306,7 @@ export default function AfiliadoDetail() {
         setEnvelopeStatus(prev => prev ? {
           ...prev,
           status: 'completed',
-          signed_pdf_path: saveResult.path || prev.signed_pdf_path,
+          signed_pdf_path: result.signedPdfPath || prev.signed_pdf_path,
         } : prev);
       } else {
         Alert.alert('Pendiente', 'El documento aun no fue firmado.');

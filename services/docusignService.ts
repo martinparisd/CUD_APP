@@ -36,6 +36,7 @@ export interface DownloadSignedResult {
   success: boolean;
   status?: string;
   pdfBase64?: string;
+  signedPdfPath?: string;
   error?: string;
 }
 
@@ -145,6 +146,7 @@ export async function downloadSignedPDF(envelopeId: string): Promise<DownloadSig
       success: true,
       status: result.status,
       pdfBase64: result.pdfBase64,
+      signedPdfPath: result.signedPdfPath,
     };
   } catch (err) {
     return {
