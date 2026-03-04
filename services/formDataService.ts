@@ -44,6 +44,10 @@ export async function createFormRecord(
       dataToInsert.puntaje_total = calculateFIMTotal((data as any).items);
     }
 
+    if (tableName === 'pedidos_medicos' && !dataToInsert.prestaciones_ambulatorias) {
+      dataToInsert.prestaciones_ambulatorias = [];
+    }
+
     const { data: insertedData, error } = await supabase
       .from(tableName)
       .insert([dataToInsert])

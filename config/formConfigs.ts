@@ -274,6 +274,27 @@ export const pedidoMedicoConfig: FormConfig = {
       ],
     },
     {
+      title: 'Prestaciones Ambulatorias',
+      fields: [
+        {
+          name: 'prestaciones_ambulatorias',
+          type: 'jsonb',
+          label: 'Prestaciones Ambulatorias',
+          required: true,
+          itemTemplate: {
+            tipo: '',
+            frecuencia: '',
+            duracion: '',
+          },
+          itemLabels: {
+            tipo: 'Tipo de Prestación',
+            frecuencia: 'Frecuencia',
+            duracion: 'Duración',
+          },
+        },
+      ],
+    },
+    {
       title: 'Justificación y Maestro de Apoyo',
       fields: [
         {

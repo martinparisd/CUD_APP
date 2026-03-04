@@ -30,7 +30,10 @@ export async function generatePDFViaEdgeFunction(
   params: GeneratePDFParams
 ): Promise<PDFResult> {
   try {
+    console.log('[PDF Generation] Params:', params);
+    console.log('[PDF Generation] Available table mappings:', TABLE_TO_FORM_TYPE);
     const formType = TABLE_TO_FORM_TYPE[params.tableName];
+    console.log('[PDF Generation] Resolved form_type:', formType);
     if (!formType) {
       return { success: false, error: `No form type mapping for table: ${params.tableName}` };
     }
@@ -60,6 +63,7 @@ export async function generatePDFViaEdgeFunction(
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[PDF Generation] Response error:', response.status, errorText);
       let errorMsg = `Error ${response.status}`;
       try {
         const errorJson = JSON.parse(errorText);
@@ -67,6 +71,7 @@ export async function generatePDFViaEdgeFunction(
       } catch {
         errorMsg = errorText || errorMsg;
       }
+      console.error('[PDF Generation] Final error message:', errorMsg);
       return { success: false, error: errorMsg };
     }
 
